@@ -1,0 +1,130 @@
+# Configuración de WXT Framework
+
+## 📄 wxt.config.ts
+
+```typescript
+import { defineConfig } from "wxt";
+
+// See https://wxt.dev/api/config.html
+export default defineConfig({
+  manifest: {
+    background: {
+      service_worker: "entrypoints/background.ts",
+      // o para MV2:
+      // persistent: true,
+      // scripts: ["entrypoints/background.ts"]
+    }
+  }
+});
+```
+
+## 🔧 Configuración Actual
+
+### **Manifest V3 Service Worker**
+- **Tipo**: `service_worker` (Manifest V3)
+- **Archivo**: `entrypoints/background.ts`
+- **Moderno**: Usa Service Worker API
+
+### **Opción Comentada (Manifest V2)**
+```typescript
+// Para compatibilidad con navegadores más antiguos
+persistent: true,
+scripts: ["entrypoints/background.ts"]
+```
+
+## 🎯 Características de esta Configuración
+
+### **Manifest V3 (Service Worker)**
+✅ **Ventajas:**
+- Mejor rendimiento y seguridad
+- Soporte moderno de navegadores
+- Menos consumo de recursos
+- Aislamiento mejorado
+
+✅ **Ideal para:**
+- Extensiones modernas
+- Firefox reciente
+- Chrome/Edge actuales
+
+### **Manifest V2 (Persistent Background)**
+⚠️ **Considerado legacy:**
+- Mayor consumo de memoria
+- Menos seguro
+- Será deprecated pronto
+
+## 🚀 WXT Framework Features
+
+### **Automatización**
+- **Build automático**: Compila TypeScript y optimiza
+- **Manifest generation**: Genera manifest.json automáticamente
+- **Hot reload**: Desarrollo en tiempo real
+- **Multi-browser**: Soporte Chrome, Firefox, Edge, Safari
+
+### **Configuración por Defecto**
+WXT proporciona configuración sensata por defecto:
+- **TypeScript compilation**
+- **Module resolution** (@/ aliases)
+- **Development server**
+- **Production builds**
+
+## 📋 Estructura de Archivos Esperada
+
+```
+project/
+├── entrypoints/
+│   ├── background.ts    # Service worker
+│   ├── content.ts       # Content script
+│   └── popup.ts         # Popup (si aplica)
+├── public/              # Assets estáticos
+├── util/                # Utilidades compartidas
+└── wxt.config.ts       # Configuración
+```
+
+## 🔌 Extensión de Configuración
+
+### **Opciones Adicionales Posibles**
+```typescript
+export default defineConfig({
+  manifest: {
+    name: "Duolingo Anki Extension",
+    description: "Integra Duolingo con Anki usando IA",
+    version: "1.0.0",
+    permissions: ["storage", "activeTab"],
+    host_permissions: ["*://*.duolingo.com/*"],
+    background: {
+      service_worker: "entrypoints/background.ts"
+    }
+  },
+  dev: {
+    server: {
+      port: 3000
+    }
+  }
+});
+```
+
+## 🎖️ Mejores Prácticas
+
+### **Para este Proyecto**
+✅ **Service Worker**: Perfecto para nuestra extensión
+✅ **Manifest V3**: Estándar moderno
+✅ **Configuración mínima**: Solo lo necesario
+
+### **Recomendaciones**
+1. **Mantener simple**: No sobre-configurar
+2. **Usar defaults**: WXT tiene buenas configuraciones por defecto
+3. **Documentar cambios**: Si se modifica la config, documentar por qué
+
+## 📚 Referencias
+
+- **Documentación oficial**: https://wxt.dev/api/config.html
+- **Manifest V3**: https://developer.chrome.com/docs/extensions/mv3/
+- **Service Workers**: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+
+## 🎯 Resumen
+
+La configuración actual es **óptima** para nuestra extensión:
+- **Moderna** (Manifest V3)
+- **Simple** (solo lo esencial)
+- **Funcional** (funciona perfectamente)
+- **Mantenible** (fácil de entender y modificar)
