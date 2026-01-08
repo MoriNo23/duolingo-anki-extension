@@ -51,10 +51,11 @@ jobs:
                   fi
 
             - name: Upload artifact for ${{ matrix.browser }}
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: duolingo-anki-extension-${{ matrix.browser }}
                   path: .output/duolingo-anki-extension-${{ matrix.browser }}.zip
+                  retention-days: 30
 
             - name: Upload to Release (only on release)
               if: github.event_name == 'release'
@@ -74,7 +75,7 @@ jobs:
 
         steps:
             - name: Download all artifacts
-              uses: actions/download-artifact@v3
+              uses: actions/download-artifact@v4
 
             - name: Create summary
               run: |
