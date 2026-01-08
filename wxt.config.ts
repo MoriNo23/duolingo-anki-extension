@@ -4,13 +4,11 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   manifest: {
     name: "Duolingo Anki Extension",
-    description: "Firefox extension that integrates Duolingo errors with Anki using Gemini AI",
+    description: "Extension that integrates Duolingo errors with Anki using Gemini AI",
     version: "2.0.0",
+    manifest_version: 3,
     background: {
-      service_worker: "entrypoints/background.ts",
-      // o para MV2:
-      // persistent: true,
-      // scripts: ["entrypoints/background.ts"]
+      service_worker: "entrypoints/background.ts"
     },
     action: {
       default_popup: "entrypoints/popup/popup.html",
@@ -30,7 +28,17 @@ export default defineConfig({
     host_permissions: [
       "*://*.duolingo.com/*",
       "https://generativelanguage.googleapis.com/*"
-    ]
+    ],
+    // Firefox specific settings for Manifest V3
+    browser_specific_settings: {
+      gecko: {
+        id: "duolingo-anki-extension@mori23.dev",
+        strict_min_version: "140.0",
+        data_collection_permissions: {
+          "required": ["none"]
+        }
+      }
+    }
   },
   // Configuración específica para cada navegador
   zip: {
