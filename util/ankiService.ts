@@ -3,58 +3,50 @@
  * Configuracion: http://127.0.0.1:8765
  */
 
-interface AnkiCard {
+export interface AnkiCard {
   front: string;
   back: string;
   categoria: string;
   consejo: string;
 }
 
-interface AnkiDeckResponse {
+export interface AnkiDeckResponse {
   mazo: string;
   tarjetas: AnkiCard[];
 }
 
-/**
- * Envía las tarjetas a AnkiConnect
- * @param mazoAnki - Objeto con el mazo y tarjetas generadas por Gemini
- */
-export const enviarMazoAAki = async (mazoAnki: AnkiDeckResponse) => {
-  try {
-    console.log('=== ENVIANDO MAZO A ANKICONNECT ===');
-    console.log('Mazo:', mazoAnki.mazo);
-    console.log('Cantidad de tarjetas:', mazoAnki.tarjetas.length);
+const ankiConnectUrl = 'http://127.0.0.1:8765';
 
-    // Configuracion de AnkiConnect
-    const ankiConnectUrl = 'http://127.0.0.1:8765';
-    
-    // 1. Obtener modelos disponibles
-    const modelosDisponibles = await obtenerModelosDisponiblesEnAnki(ankiConnectUrl);
-    console.log('Modelos disponibles:', modelosDisponibles);
-    
-    // 2. Seleccionar el mejor modelo (preferiblemente uno con Front/Back)
-    const modeloSeleccionado = seleccionarMejorModeloDisponible(modelosDisponibles);
-    console.log('Modelo seleccionado:', modeloSeleccionado);
-    
-    if (!modeloSeleccionado) {
-      throw new Error('No se encontró ningún modelo compatible en Anki');
-    }
-    
-    // 3. Crear el mazo si no existe
-    await crearMazoSiNoExisteEnAnki(mazoAnki.mazo, ankiConnectUrl);
-    
-    // 4. Agregar cada tarjeta al mazo
-    for (const tarjeta of mazoAnki.tarjetas) {
-      await agregarTarjetaAlMazoAnki(tarjeta, mazoAnki.mazo, modeloSeleccionado, ankiConnectUrl);
-    }
-    
-    console.log('=== MAZO ENVIADO CORRECTAMENTE A ANKI ===');
-    console.log(`Se agregaron ${mazoAnki.tarjetas.length} tarjetas al mazo "${mazoAnki.mazo}"`);
-    
-  } catch (error) {
-    console.error('Error al enviar mazo a AnkiConnect:', error);
-    throw error;
+/**
+ * Envía el mazo generado por Gemini a AnkiConnect
+ */
+export const enviarMazoAAki = async (mazoAnki: AnkiDeckResponse): Promise<void> => {
+  console.log('=== ENVIANDO MAZO A ANKICONNECT ===');
+  console.log('Mazo:', mazoAnki.mazo);
+  console.log('Cantidad de tarjetas:', mazoAnki.tarjetas.length);
+
+  const ok = await verificarAnkiConnect();
+  if (!ok) {
+    throw new Error('AnkiConnect no está disponible');
   }
+
+  // Asegurar que el mazo exista
+  await crearMazoSiNoExisteEnAnki(mazoAnki.mazo, ankiConnectUrl);
+
+  // Detectar modelo disponible
+  const modelos = await obtenerModelosDisponiblesEnAnki(ankiConnectUrl);
+  const modeloSeleccionado = seleccionarMejorModeloDisponible(modelos);
+  if (!modeloSeleccionado) {
+    throw new Error('No hay modelos disponibles en Anki');
+  }
+
+  // Agregar tarjetas una por una (permite adaptar campos según modelo)
+  for (const tarjeta of mazoAnki.tarjetas) {
+    await agregarTarjetaAlMazoAnki(tarjeta, mazoAnki.mazo, modeloSeleccionado, ankiConnectUrl);
+  }
+
+  console.log('=== MAZO ENVIADO CORRECTAMENTE A ANKI ===');
+  console.log(`Se agregaron ${mazoAnki.tarjetas.length} tarjetas al mazo "${mazoAnki.mazo}"`);
 };
 
 /**

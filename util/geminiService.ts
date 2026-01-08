@@ -1,57 +1,34 @@
-import { GoogleGenAI } from "@google/genai";
-import { enviarMazoAAki, verificarAnkiConnect } from './ankiService';
-import { obtenerApiKey } from './storageService';
+import { GoogleGenAI } from '@google/genai';
+import { enviarMazoAAki, verificarAnkiConnect, type AnkiDeckResponse } from './ankiService';
+
+export const GEMINI_API_KEY = '';
 
 // Variable para debounce proper
-let debounceTimer: NodeJS.Timeout | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let erroresPendientes: any[] = [];
 
-/**
- * Obtiene una instancia de GoogleGenAI con la API key del storage
- */
-async function obtenerGenAI(): Promise<GoogleGenAI> {
-  try {
-    const apiKey = await obtenerApiKey();
-    
-    if (!apiKey) {
-      throw new Error('No hay API key configurada. Por favor, configura tu API key de Gemini en el popup de la extensión.');
-    }
-    
-    return new GoogleGenAI({ apiKey });
-  } catch (error) {
-    console.error('❌ Error obteniendo API key:', error);
-    throw error;
+export async function generarMazoAnki(errores: any[]): Promise<void> {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Falta configurar GEMINI_API_KEY en util/geminiService.ts');
   }
-}
 
-/**
- * Funcion principal para usar Gemini y generar mazos de Anki
- * Sigue exactamente el metodo de uso proporcionado
- */
-async function generarMazoAnki(errores: any[]) {
-  try {
-    // Si no hay errores, no hacer nada
-    if (errores.length === 0) {
-      console.log('No hay errores para procesar');
-      return;
-    }
-    
-    console.log('Procesando', errores.length, 'errores para Gemini');
-    
-    // Crear el contenido para Gemini con los errores y la solicitud de mazo Anki
-    const contenido = `Analiza estos errores de Duolingo y crea un mazo de Anki llamado "ErroresDuolingo".
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+  if (errores.length === 0) {
+    return;
+  }
+
+  const contenido = `Analiza estos errores de Duolingo y crea un mazo de Anki.
 
 ERRORES:
-${errores.map((error, index) => `
+${errores
+    .map(
+      (error, index) => `
 ${index + 1}. Pregunta: "${error.textoPrueba}"
    Respuesta usuario: "${error.textoEntrada}"
-   Respuesta correcta: "${error.textoSolucion}"
-`).join('\n')}
-
-INSTRUCCIONES:
-1. Categoriza cada error (Traducción incorrecta, Error de gramática, Falta de vocabulario, Error de conjugación, Orden de palabras incorrecto, etc.)
-2. Crea tarjetas Anki con front/back
-3. Da un consejo específico para cada categoría
+   Respuesta correcta: "${error.textoSolucion}"`,
+    )
+    .join('\n')}
 
 RESPONDE ÚNICAMENTE CON JSON ESTRICTO:
 {
@@ -68,96 +45,46 @@ RESPONDE ÚNICAMENTE CON JSON ESTRICTO:
 
 SIN TEXTO ADICIONAL. SOLO JSON.`;
 
-    // Obtener instancia de GenAI con API key del storage
-    const genAI = await obtenerGenAI();
-    
-    const response = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: contenido,
-    });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: contenido,
+  });
 
-    // Mostrar la respuesta de Gemini en formato tabla
-    console.table(response.text);
-    
-    // Aqui seguira el resto del codigo...
-    
-    // Procesar la respuesta de Gemini y enviar a AnkiConnect
-    try {
-      // Verificar que la respuesta no sea undefined
-      if (!response.text) {
-        console.error('La respuesta de Gemini está vacía');
-        return;
-      }
-      
-      console.log('Respuesta cruda de Gemini:', response.text);
-      
-      // Intentar extraer JSON de la respuesta de Gemini
-      let mazoAnki;
-      try {
-        // Intentar parsear directamente
-        mazoAnki = JSON.parse(response.text);
-      } catch (directParseError) {
-        // Si falla, intentar extraer JSON del texto
-        const jsonMatch = response.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          mazoAnki = JSON.parse(jsonMatch[0]);
-        } else {
-          // Si no encuentra JSON, crear una estructura manual
-          console.warn('No se encontró JSON en la respuesta, creando estructura manual');
-          mazoAnki = {
-            mazo: "ErroresDuolingo",
-            tarjetas: [] // Array vacío, Gemini no devolvió formato válido
-          };
-        }
-      }
-      
-      // Verificar que la estructura sea válida
-      if (!mazoAnki.mazo || !Array.isArray(mazoAnki.tarjetas)) {
-        console.error('La estructura del mazo no es válida:', mazoAnki);
-        return;
-      }
-      
-      console.log('Mazo parseado correctamente:', mazoAnki);
-      
-      // Verificar que AnkiConnect esté disponible
-      const ankiDisponible = await verificarAnkiConnect();
-      if (!ankiDisponible) {
-        console.warn('AnkiConnect no está disponible. Asegúrate de que Anki esté abierto y AnkiConnect instalado.');
-        return;
-      }
-      
-      // Enviar el mazo a AnkiConnect
-      await enviarMazoAAki(mazoAnki);
-      
-    } catch (parseError) {
-      console.error('Error al procesar la respuesta de Gemini:', parseError);
-      console.log('Respuesta cruda de Gemini:', response.text);
+  const raw = response.text ?? '';
+  let mazoAnki: AnkiDeckResponse;
+
+  try {
+    mazoAnki = JSON.parse(raw) as AnkiDeckResponse;
+  } catch {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Gemini no devolvió JSON');
     }
-    
-  } catch (error) {
-    console.error('Error al generar mazo con Gemini:', error);
+    mazoAnki = JSON.parse(jsonMatch[0]) as AnkiDeckResponse;
   }
+
+  if (!mazoAnki?.mazo || !Array.isArray(mazoAnki.tarjetas)) {
+    throw new Error('La estructura del JSON devuelto por Gemini no es válida');
+  }
+
+  const ok = await verificarAnkiConnect();
+  if (!ok) {
+    throw new Error('AnkiConnect no está disponible. Abre Anki e instala AnkiConnect.');
+  }
+
+  await enviarMazoAAki(mazoAnki);
 }
 
-/**
- * Funcion con debounce proper - esta es la que se debe llamar desde el background
- */
 export const generarMazoAnkiConDebounce = (errores: any[]) => {
-  // Almacenar los errores recibidos
   erroresPendientes = errores;
-  
-  // Limpiar timer anterior
+
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
-  
-  // Esperar 2 segundos antes de ejecutar
+
   debounceTimer = setTimeout(() => {
-    console.log('Ejecutando generacion de mazo (debounce completado)');
-    generarMazoAnki(erroresPendientes);
+    generarMazoAnki(erroresPendientes).catch((e) => console.error(e));
     debounceTimer = null;
     erroresPendientes = [];
   }, 2000);
 };
-
-export { generarMazoAnki };
