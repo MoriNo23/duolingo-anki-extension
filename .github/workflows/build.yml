@@ -1,0 +1,110 @@
+name: Build Extension for All Browsers
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    release:
+        types: [published]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                browser: [firefox, chrome, edge, safari]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v2
+              with:
+                  version: 8
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Build for ${{ matrix.browser }}
+              run: pnpm run build:${{ matrix.browser }}
+
+            - name: Create ZIP for ${{ matrix.browser }}
+              run: |
+                  cd .output
+                  if [ "${{ matrix.browser }}" = "firefox" ]; then
+                    zip -r duolingo-anki-extension-${{ matrix.browser }}.zip firefox-mv2/
+                  elif [ "${{ matrix.browser }}" = "chrome" ]; then
+                    zip -r duolingo-anki-extension-${{ matrix.browser }}.zip chrome-mv3/
+                  elif [ "${{ matrix.browser }}" = "edge" ]; then
+                    zip -r duolingo-anki-extension-${{ matrix.browser }}.zip edge-mv3/
+                  elif [ "${{ matrix.browser }}" = "safari" ]; then
+                    zip -r duolingo-anki-extension-${{ matrix.browser }}.zip safari-mv3/
+                  fi
+
+            - name: Upload artifact for ${{ matrix.browser }}
+              uses: actions/upload-artifact@v3
+              with:
+                  name: duolingo-anki-extension-${{ matrix.browser }}
+                  path: .output/duolingo-anki-extension-${{ matrix.browser }}.zip
+
+            - name: Upload to Release (only on release)
+              if: github.event_name == 'release'
+              uses: actions/upload-release-asset@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  upload_url: ${{ github.event.release.upload_url }}
+                  asset_path: .output/duolingo-anki-extension-${{ matrix.browser }}.zip
+                  asset_name: duolingo-anki-extension-${{ matrix.browser }}.zip
+                  asset_content_type: application/zip
+
+    build-summary:
+        needs: build
+        runs-on: ubuntu-latest
+        if: always()
+
+        steps:
+            - name: Download all artifacts
+              uses: actions/download-artifact@v3
+
+            - name: Create summary
+              run: |
+                  echo "# 🚀 Extension Build Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## 📦 Built Extensions" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "| Browser | Status | Download |" >> $GITHUB_STEP_SUMMARY
+                  echo "|---------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+                  echo "| Firefox | ✅ | [Download](duolingo-anki-extension-firefox) |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Chrome | ✅ | [Download](duolingo-anki-extension-chrome) |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Edge | ✅ | [Download](duolingo-anki-extension-edge) |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Safari | ✅ | [Download](duolingo-anki-extension-safari) |" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "## 📋 Installation Instructions" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### Firefox" >> $GITHUB_STEP_SUMMARY
+                  echo "1. Download the .zip file" >> $GITHUB_STEP_SUMMARY
+                  echo "2. Open Firefox → about:addons" >> $GITHUB_STEP_SUMMARY
+                  echo "3. Click 'Install Add-on From File'" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### Chrome/Edge" >> $GITHUB_STEP_SUMMARY
+                  echo "1. Download the .zip file" >> $GITHUB_STEP_SUMMARY
+                  echo "2. Extract the contents" >> $GITHUB_STEP_SUMMARY
+                  echo "3. Open chrome://extensions/" >> $GITHUB_STEP_SUMMARY
+                  echo "4. Enable 'Developer mode'" >> $GITHUB_STEP_SUMMARY
+                  echo "5. Click 'Load unpacked'" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### Safari" >> $GITHUB_STEP_SUMMARY
+                  echo "1. Download the .zip file" >> $GITHUB_STEP_SUMMARY
+                  echo "2. Extract the contents" >> $GITHUB_STEP_SUMMARY
+                  echo "3. Open Safari → Develop → Web Extensions" >> $GITHUB_STEP_SUMMARY
+                  echo "4. Click '+' to add extension" >> $GITHUB_STEP_SUMMARY
