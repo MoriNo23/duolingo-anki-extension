@@ -1,6 +1,8 @@
 import { handleclickComprobar } from '@/util/observadorDeErrores'
 import { checkUrl } from '@/util/verificarUrl'
-import { obtenerErroresAcumulados, limpiarArrayDeErrores, existenErrores } from '@/util/almacenamiento'
+import { agregarErrorAlArray, limpiarArrayDeErrores, existenErrores, obtenerErroresAcumulados } from './almacenamiento'
+import { MessageErroresAcumulados } from '@/types'
+import { logger } from '@/util/logger'
 
 /**
  * Envía los errores acumulados al background script
@@ -13,15 +15,17 @@ const enviarErroresABackground = () => {
         
         // Enviar mensaje al background script con el array completo
         // Usamos browser API para Firefox en lugar de chrome
-        browser.runtime.sendMessage({
+        const message: MessageErroresAcumulados = {
             type: 'ERRORES_ACUMULADOS',
             data: errores
-        }).then(() => {
-            console.log('Array de errores enviado a background.ts:', errores)
+        };
+        
+        browser.runtime.sendMessage(message).then(() => {
+            logger.sensitive('Array de errores enviado a background', { cantidad: errores.length });
             // Limpiar el array despues de enviarlo
             limpiarArrayDeErrores()
         }).catch((error: any) => {
-            console.error('Error al enviar errores al background:', error)
+            logger.error('Error al enviar errores al background', error);
         })
     }
 }
@@ -39,7 +43,7 @@ const monitorearCambiosDeUrl = () => {
     if ((urlAnterior.includes('/practice') || urlAnterior.includes('/lesson')) && 
         !urlActual.includes('/practice') && !urlActual.includes('/lesson')) {
         
-        console.log('Usuario salió de practice/lesson, enviando errores acumulados')
+        logger.debug('Usuario salió de practice/lesson, enviando errores acumulados');
         enviarErroresABackground()
     }
     
@@ -51,13 +55,14 @@ export const observandoLesson = () => {
     setInterval(monitorearCambiosDeUrl, 1000)
     
     if (checkUrl('/practice') || checkUrl('/lesson')) {
-        const buttonNext = document.querySelector('button[data-test="player-next"]') as HTMLElement
-        const estilos = window.getComputedStyle(buttonNext)
-        const tieneColor = estilos.getPropertyValue('--__internal__background-color')
-        if (tieneColor === 'rgb(147, 211, 51)') {
-            buttonNext.addEventListener('click', handleclickComprobar)
-        } else {
-            buttonNext.removeEventListener('click', handleclickComprobar)
+        const buttonNext = document.querySelector('button[data-test="player-next"]') as HTMLElement | null
+        
+        if (buttonNext) {
+            const estilos = window.getComputedStyle(buttonNext)
+            const tieneColor = estilos.getPropertyValue('--__internal__background-color')
+            if (tieneColor === 'rgb(147, 211, 51)') {
+                buttonNext.addEventListener('click', handleclickComprobar)
+            }
         }
     }
 }

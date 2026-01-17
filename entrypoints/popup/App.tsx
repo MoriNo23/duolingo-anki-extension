@@ -1,94 +1,147 @@
 import React, { useState, useEffect } from 'react';
+import { MessageGetApiKey, MessageSaveApiKey, MessageResponse } from '@/types';
+import './styles.css';
+
+type Status = 'idle' | 'loading' | 'success' | 'error';
+
+interface StatusMessage {
+  type: Status;
+  message: string;
+}
 
 function App() {
   const [apiKey, setApiKey] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
 
   useEffect(() => {
-    // Pedir API key al background (que la tiene guardada en localStorage)
-    console.log('Pidiendo API key al background...');
+    // Pedir API key al background
     browser.runtime.sendMessage({ 
       type: 'GET_API_KEY' 
-    }, (response) => {
-      console.log('Respuesta del background:', response);
-      if (response && response.apiKey) {
+    }, (response: MessageResponse) => {
+      if (response?.success && response.apiKey) {
         setApiKey(response.apiKey);
-        console.log('API key recibida desde background:', response.apiKey);
-      } else {
-        console.log('No hay API key guardada en el background');
       }
     });
   }, []);
 
-  const handleSave = () => {
-    console.log('Enviando API key al background:', apiKey);
-    
+  const validateApiKey = (key: string): 'weak' | 'medium' | 'strong' | 'invalid' => {
+    if (!key) return 'invalid';
+    if (key.length < 20) return 'weak';
+    if (key.length < 30) return 'medium';
+    return 'strong';
+  };
+
+  const getStrengthText = (strength: string): string => {
+    switch (strength) {
+      case 'weak': return 'Débil';
+      case 'medium': return 'Media';
+      case 'strong': return 'Fuerte';
+      default: return '';
+    }
+  };
+
+  const handleSave = async () => {
+    if (!apiKey.trim()) {
+      setStatusMessage({
+        type: 'error',
+        message: 'Por favor ingresa una API key válida'
+      });
+      return;
+    }
+
+    setStatus('loading');
+    setStatusMessage(null);
+
     // Enviar API key directamente al background
     browser.runtime.sendMessage({ 
       type: 'SAVE_API_KEY', 
-      apiKey: apiKey 
-    }, (response) => {
-      console.log('Respuesta del background:', response);
-      if (response && response.success) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+      apiKey: apiKey.trim() 
+    }, (response: MessageResponse) => {
+      setStatus('idle');
+      
+      if (response?.success) {
+        setStatusMessage({
+          type: 'success',
+          message: '✓ API key guardada correctamente'
+        });
+        
+        // Limpiar mensaje después de 3 segundos
+        setTimeout(() => setStatusMessage(null), 3000);
       } else {
-        console.error('Error al guardar API key en el background');
+        setStatusMessage({
+          type: 'error',
+          message: response?.message || 'Error al guardar la API key'
+        });
       }
     });
   };
 
+  const strength = validateApiKey(apiKey);
+  const isValid = strength !== 'invalid' && apiKey.trim().length > 0;
+
   return (
-    <div style={{ padding: '16px', minWidth: '300px', fontFamily: 'Arial, sans-serif' }}>
-      <h1 style={{ margin: '0 0 16px 0', fontSize: '18px', color: '#58cc02' }}>
-        Duolingo Anki Extension
-      </h1>
-      <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666' }}>
-        Configura tu API Key de Gemini AI
-      </p>
+    <div className="duolingo-popup">
+      <div className="header">
+        <h1 className="title">DuoFlash Anki</h1>
+        <p className="subtitle">Configura tu API Key de Gemini AI</p>
+      </div>
       
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+      <div className="form-group">
+        <label className="label">
           Gemini API Key:
         </label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="Ingresa tu API key..."
-          style={{
-            width: '100%',
-            padding: '8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            fontSize: '14px',
-            boxSizing: 'border-box'
-          }}
-        />
+        <div className="input-wrapper">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="AIza..."
+            className={`api-input ${strength}`}
+            disabled={status === 'loading'}
+          />
+          {apiKey && (
+            <span className={`strength-indicator strength-${strength}`}>
+              {getStrengthText(strength)}
+            </span>
+          )}
+        </div>
       </div>
 
       <button 
         onClick={handleSave}
-        disabled={!apiKey.trim()}
-        style={{
-          backgroundColor: apiKey.trim() ? '#58cc02' : '#ccc',
-          color: 'white',
-          border: 'none',
-          padding: '8px 16px',
-          borderRadius: '8px',
-          cursor: apiKey.trim() ? 'pointer' : 'not-allowed',
-          fontSize: '14px',
-          width: '100%'
-        }}
+        disabled={!isValid || status === 'loading'}
+        className="button button-primary"
       >
-        {saved ? '✓ Guardado' : 'Guardar API Key'}
+        <div className="button-content">
+          {status === 'loading' ? (
+            <>
+              <div className="spinner"></div>
+              Guardando...
+            </>
+          ) : (
+            'Guardar API Key'
+          )}
+        </div>
       </button>
 
-      {saved && (
-        <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#58cc02' }}>
-          API key guardada correctamente
-        </p>
+      {statusMessage && (
+        <div className={`status-message status-${statusMessage.type}`}>
+          {statusMessage.message}
+        </div>
       )}
+
+      <div className="footer">
+        <p>
+          <a 
+            href="https://aistudio.google.com/app/apikey" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            ¿No tienes API key? Obtén una aquí
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

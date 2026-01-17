@@ -1,27 +1,23 @@
-// Interface para cada objeto de error del usuario
-interface ErrorDelUsuario {
-    textoPrueba: string
-    textoEntrada: string
-    textoSolucion: string
-}
+import { DuolingoError } from '@/types'
+import { logger } from '@/util/logger'
 
 // Array que almacenara todos los errores detectados durante la sesion
-let erroresAcumulados: ErrorDelUsuario[] = []
+let erroresAcumulados: DuolingoError[] = []
 
 /**
  * Agrega un nuevo error al array de errores acumulados
  * @param error - Objeto con los datos del error a agregar
  */
-export const agregarErrorAlArray = (error: ErrorDelUsuario) => {
+export const agregarErrorAlArray = (error: DuolingoError) => {
     erroresAcumulados.push(error)
-    console.log('Error agregado al array. Total:', erroresAcumulados.length)
+    logger.sensitive('Error agregado al array', { total: erroresAcumulados.length })
 }
 
 /**
  * Obtiene todos los errores acumulados
  * @returns Array con todos los errores detectados
  */
-export const obtenerErroresAcumulados = (): ErrorDelUsuario[] => {
+export const obtenerErroresAcumulados = (): DuolingoError[] => {
     return [...erroresAcumulados] // Devolvemos una copia para evitar mutaciones externas
 }
 
@@ -31,7 +27,7 @@ export const obtenerErroresAcumulados = (): ErrorDelUsuario[] => {
  */
 export const limpiarArrayDeErrores = () => {
     erroresAcumulados = []
-    console.log('Array de errores limpiado')
+    logger.debug('Array de errores limpiado')
 }
 
 /**
