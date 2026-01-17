@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: "DuoFlash Anki",
     description: "Extension that integrates Duolingo errors with Anki using Gemini AI",
-    version: "2.0.0",
+    version: "1.0.0",
     permissions: [
       "storage"
     ],
