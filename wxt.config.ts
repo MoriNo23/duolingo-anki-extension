@@ -23,6 +23,16 @@ export default defineConfig({
       32: "icons/icon-32.png", 
       48: "icons/icon-48.png",
       128: "icons/icon-128.png"
+    },
+    browser_specific_settings: {
+      gecko: {
+        id: "a7b8c9d0-e1f2-4a3b-8c5d-6e7f8a9b0c1d@MoriNo23.github.io",
+        data_collection_permissions: {
+          "is_data_collection_required": false,
+          "required": ["none"],
+          "data_collection_description": "This extension does not collect any personal data. It only stores user preferences locally in the browser."
+        }
+      }
     }
   },
 });
