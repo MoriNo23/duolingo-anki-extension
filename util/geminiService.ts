@@ -1,18 +1,30 @@
 import { GoogleGenAI } from '@google/genai';
 import { enviarMazoAAki, verificarAnkiConnect, type AnkiDeckResponse } from './ankiService';
 
-export const GEMINI_API_KEY = '';
-
 // Variable para debounce proper
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let erroresPendientes: any[] = [];
 
+// Función para obtener la API key desde el localStorage del background
+async function getGeminiApiKey(): Promise<string> {
+  // El background siempre guarda la API key en localStorage
+  if (typeof localStorage !== 'undefined') {
+    const apiKey = localStorage.getItem('geminiApiKey');
+    return apiKey || '';
+  }
+  
+  // Si no hay localStorage (ej. en popup), devolver vacío
+  return '';
+}
+
 export async function generarMazoAnki(errores: any[]): Promise<void> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('Falta configurar GEMINI_API_KEY en util/geminiService.ts');
+  const apiKey = await getGeminiApiKey();
+  
+  if (!apiKey) {
+    throw new Error('No hay API key configurada. Por favor configura la API key en el popup.');
   }
 
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   if (errores.length === 0) {
     return;
