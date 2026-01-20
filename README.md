@@ -22,4 +22,4 @@
  Obtén tu key en https://aistudio.google.com/api-keys, abre el popup de la extensión y pégala ahí.
  
  
- Disclaimer: El porcentaje de IA en este proyecto fue ~80% y se desarrolló con Windsurf.
+ Disclaimer: Projecto meramente de investigacion y estudio de idiomas.

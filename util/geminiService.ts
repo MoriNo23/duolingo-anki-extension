@@ -1,11 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 import { enviarMazoAAki, verificarAnkiConnect, type AnkiDeckResponse } from './ankiService';
-import { DuolingoError, AnkiDeck, ExtensionError, ERROR_CODES } from '@/types';
+import { DuolingoRespuesta, AnkiDeck, ExtensionError, ERROR_CODES } from '@/types';
 import { logger } from '@/util/logger';
+import { obtenerNombreMazo } from './nombresDeMazos';
 
 // Variable para debounce proper
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let erroresPendientes: DuolingoError[] = [];
+let respuestasPendientes: DuolingoRespuesta[] = [];
 
 // Función para obtener la API key desde el localStorage del background
 async function getGeminiApiKey(): Promise<string> {
@@ -14,7 +15,7 @@ async function getGeminiApiKey(): Promise<string> {
     const apiKey = localStorage.getItem('geminiApiKey');
     return apiKey || '';
   }
-  
+
   // Si no hay localStorage (ej. en popup), devolver vacío
   return '';
 }
@@ -24,10 +25,10 @@ function validateApiKey(apiKey: string): boolean {
   return apiKey.length > 20 && apiKey.startsWith('AIza');
 }
 
-export async function generarMazoAnki(errores: DuolingoError[]): Promise<void> {
+export async function generarMazoAnki(respuestas: DuolingoRespuesta[]): Promise<void> {
   try {
     const apiKey = await getGeminiApiKey();
-    
+
     if (!apiKey) {
       throw new ExtensionError(
         'No hay API key configurada',
@@ -46,34 +47,49 @@ export async function generarMazoAnki(errores: DuolingoError[]): Promise<void> {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    if (errores.length === 0) {
-      logger.debug('No hay errores para procesar');
+    if (respuestas.length === 0) {
+      logger.debug('No hay respuestas para procesar');
       return;
     }
 
-    logger.data('Procesando errores con Gemini AI', { cantidad: errores.length });
+    logger.data('Procesando errores con Gemini AI', { cantidad: respuestas.length });
 
-    const contenido = `Analiza estos errores de Duolingo y crea un mazo de Anki.
+    // Obtener idioma de origen y aprendizaje del primer error (asumimos que todos son de la misma sesión)
+    const { idiomaOrigen, idiomaAprendizaje } = respuestas[0];
+    const nombreMazo = obtenerNombreMazo(idiomaOrigen, idiomaAprendizaje);
 
-ERRORES:
-${errores
-    .map(
-      (error, index) => `
-${index + 1}. Pregunta: "${error.textoPrueba}"
-   Respuesta usuario: "${error.textoEntrada}"
-   Respuesta correcta: "${error.textoSolucion}"`,
-    )
-    .join('\n')}
+    const contenido = `Analiza estos errores de Duolingo y crea un mazo de Anki. 
+    
+REGLAS PARA LAS TARJETAS:
+1. Si 'esEjercicioAudio' es true: Crea una tarjeta de PRONUNCIACIÓN. 
+   - Front: El texto indicado en 'frase' (ej: "¿Cómo se pronuncia 'hello'?").
+   - Back: La fonética aproximada en ESPAÑOL (ej: "jelou").
+   - Consejo: Un tip breve sobre cómo posicionar la lengua o labios.
+2. Si 'esEjercicioAudio' es false: Crea una tarjeta de TRADUCCIÓN.
+   - Front: El texto en 'frase'.
+   - Back: La 'mejorSolucion'.
+   - Consejo: Una explicación breve de por qué la 'respuestaUsuario' estaba mal.
+
+ERRORES PARA PROCESAR:
+${respuestas
+        .map(
+          (r, index) => `
+${index + 1}. Frase: "${r.frase}"
+   Respuesta usuario: "${r.respuestaUsuario}"
+   Respuesta correcta: "${r.mejorSolucion}"
+   Es audio: ${r.esEjercicioAudio}`,
+        )
+        .join('\n')}
 
 RESPONDE ÚNICAMENTE CON JSON ESTRICTO:
 {
-  "mazo": "ErroresDuolingo",
+  "mazo": "${nombreMazo}",
   "tarjetas": [
     {
-      "front": "texto en idioma original",
-      "back": "traducción correcta",
-      "categoria": "nombre de categoría",
-      "consejo": "consejo específico y práctico"
+      "front": "texto",
+      "back": "texto",
+      "categoria": "Gramática|Pronunciación|Vocabulario",
+      "consejo": "tip práctico"
     }
   ]
 }
@@ -87,7 +103,7 @@ SIN TEXTO ADICIONAL. SOLO JSON.`;
 
     const responseText = response.text ?? '';
     logger.debug('Respuesta de Gemini', { texto: responseText.substring(0, 100) + '...' });
-    
+
     // Parsear respuesta JSON
     let ankiDeck: AnkiDeck;
     try {
@@ -142,16 +158,16 @@ SIN TEXTO ADICIONAL. SOLO JSON.`;
   }
 }
 
-export const generarMazoAnkiConDebounce = (errores: DuolingoError[]) => {
-  erroresPendientes = errores;
+export const generarMazoAnkiConDebounce = (respuestas: DuolingoRespuesta[]) => {
+  respuestasPendientes = respuestas;
 
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
 
   debounceTimer = setTimeout(() => {
-    generarMazoAnki(erroresPendientes).catch((e) => console.error(e));
+    generarMazoAnki(respuestasPendientes).catch((e) => console.error(e));
     debounceTimer = null;
-    erroresPendientes = [];
+    respuestasPendientes = [];
   }, 2000);
 };

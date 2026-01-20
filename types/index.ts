@@ -1,4 +1,17 @@
 // Tipos para la extensión
+export interface DuolingoRespuesta {
+  mejorSolucion: string;      // best_solution
+  respuestaUsuario: string;   // guess
+  frase: string;              // prompt
+  tipoEjercicio: string;      // item_type
+  idiomaOrigen: string;       // from_language
+  idiomaAprendizaje: string;  // learning_language
+  esCorrecta: boolean;        // correct
+  esEjercicioAudio: boolean;  // detectado vía regex /listen|speak|audio/i
+  timestamp: number;
+}
+
+/** @deprecated Use DuolingoRespuesta instead */
 export interface DuolingoError {
   textoPrueba: string;
   textoEntrada: string;
@@ -36,7 +49,7 @@ export interface MessageSaveApiKey {
 
 export interface MessageErroresAcumulados {
   type: 'ERRORES_ACUMULADOS';
-  data: DuolingoError[];
+  data: DuolingoRespuesta[];
 }
 
 export type ExtensionMessage = MessageGetApiKey | MessageSaveApiKey | MessageErroresAcumulados;
